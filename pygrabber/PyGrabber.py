@@ -48,17 +48,13 @@ class PyGrabber:
 
     def start(self, handle):
         self.graph.add_sample_grabber(self.callback)
-        # self.graph.add_null_render()
         self.graph.add_default_render()
-        # self.graph.add_video_mixing_render()
         self.graph.prepare()
         self.graph.configure_render(handle)
         self.graph.run()
 
     def stop(self):
         self.graph.stop()
-        # self.graph.wait_stepped()
-        del self.graph
 
     def update_window(self, width, height):
         self.graph.update_window(width, height)

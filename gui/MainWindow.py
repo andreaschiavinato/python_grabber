@@ -131,7 +131,6 @@ class MainWindow:
     def change_camera(self):
         self.grabber.stop()
         del self.grabber
-        # gc.collect()
         self.grabber = PyGrabber(self.on_image_received)
         self.select_device()
 
@@ -160,7 +159,6 @@ class MainWindow:
             filetypes=[('PNG', ".png"), ('JPG', ".jpg")])
         if filename is not None:
             save_image(filename, self.image)
-            # mpimg.imsave(filename, self.image)
 
     def image_filter(self, process_function):
         def inner():

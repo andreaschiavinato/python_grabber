@@ -47,7 +47,6 @@ class FilterGraph:
         self.image_resolution = None
         self.media_control = None
         self.media_event = None
-        self.capture_filter_pin = None
         self.video_window = None
 
     def add_input_device(self, index):
@@ -88,16 +87,15 @@ class FilterGraph:
         assert self.render_filter is not None
         graph_builder = self.filter_graph.QueryInterface(qedit.IGraphBuilder)
         if self.sample_grabber is None:
-            graph_builder.Connect(self.capture_filter_pin, _get_pin(self.render_filter, PIN_IN))
+            graph_builder.Connect(_get_pin(self.capture_filter, PIN_OUT), _get_pin(self.render_filter, PIN_IN))
         else:
-            graph_builder.Connect(self.capture_filter_pin, _get_pin(self.sample_grabber, PIN_IN))
+            graph_builder.Connect(_get_pin(self.capture_filter, PIN_OUT), _get_pin(self.sample_grabber, PIN_IN))
             graph_builder.Connect(_get_pin(self.sample_grabber, PIN_OUT), _get_pin(self.render_filter, PIN_IN))
             self.sample_grabber_cb.image_resolution = self.get_sample_grabber_resolution()
         self.media_control = self.filter_graph.QueryInterface(quartz.IMediaControl)
         self.media_event = self.filter_graph.QueryInterface(quartz.IMediaEvent)
 
     def configure_render(self, handle):
-        # works only with the default render
         # must be called after the graph is connected
         self.video_window = self.render_filter.QueryInterface(IVideoWindow)
         self.video_window.put_Owner(handle)
@@ -123,14 +121,8 @@ class FilterGraph:
     def pause(self):
         self.media_control.Pause()
 
-    def wait_stepped(self):
-        while True:
-            time.sleep(1)
-            res = self.media_event.GetEvent(0xFFFFFFFF)
-            print(res)
-            if res[0] == 14:
-                return
-            self.media_event.FreeEventParams(res[0], res[1], res[2])
+    def get_state(self):
+        return self.media_control.GetState(0xFFFFFFFF)  # 0xFFFFFFFF = infinite timeout
 
     def set_properties(self, filter):
         try:
@@ -186,14 +178,21 @@ class FilterGraph:
         return bmp_header.biWidth, bmp_header.biHeight
 
     def display_format_dialog(self):
-        self.capture_filter_pin = _get_pin(self.capture_filter, PIN_OUT)
-        self.set_properties(self.capture_filter_pin)
+        self.set_properties(_get_pin(self.capture_filter, PIN_OUT))
 
     def grab_frame(self):
         self.sample_grabber_cb.keep_photo = True
 
     def get_input_device(self):
         return self.capture_filter
+
+    def remove_filters(self):
+        enum_filters = self.filter_graph.EnumFilters()
+        filt, count = enum_filters.Next(1)
+        while count > 0:
+            self.filter_graph.RemoveFilter(filt)
+            enum_filters.Reset()
+            filt, count = enum_filters.Next(1)
 
 
 class _sample_grabber_callback(COMObject):
@@ -244,9 +243,11 @@ def _get_filter_name(arg):
     if type(arg) == POINTER(IMoniker):
         property_bag = arg.BindToStorage(0, 0, IPropertyBag._iid_).QueryInterface(IPropertyBag)
         return property_bag.Read("FriendlyName", pErrorLog=None)
-    else:
+    elif type(arg) == POINTER(qedit.IBaseFilter):
         filter_info = arg.QueryFilterInfo()
         return wstring_at(filter_info.achName)
+    else:
+        return None
 
 
 def _get_filter_by_index(category_clsid, index):
@@ -292,5 +293,3 @@ def print_filter_pins(filter):
         direction, name = (info.dir, wstring_at(info.achName))
         print(f"PIN {direction} - {name}")
         pin, count = enum.Next(1)
-
-

@@ -47,7 +47,6 @@ def edge_preserving(img):
 
 
 def stylization(img):
-    # cv2.imshow('Image from OpenCV', img)
     return cv2.stylization(img)
 
 
