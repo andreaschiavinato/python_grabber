@@ -26,18 +26,19 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+# see https://github.com/tpn/winsdk-10/blob/master/Include/10.0.16299.0/um/axextend.idl for interface spec.
+
 from pygrabber.moniker import *
+from pygrabber.win_common_types import *
 from comtypes import *
 from comtypes import client
-from ctypes.wintypes import RECT, ULONG
+from ctypes.wintypes import RECT, ULONG, LPOLESTR, DWORD
 from comtypes.automation import IDispatch
+from ctypes import c_int
 
 qedit = client.GetModule("qedit.dll")
 quartz = client.GetModule("quartz.dll")
 
-REFERENCE_TIME = c_longlong
-LONG_PTR = c_ulong
-OLE_HANDLE = c_int
 
 PIN_IN = 0
 PIN_OUT = 1
@@ -162,13 +163,13 @@ IVideoWindow._methods_ = [
               (['in'], BSTR, 'strCaption')),
 
     COMMETHOD([], HRESULT, 'get_Caption',
-              (['retval','out'], POINTER(BSTR), 'strCaption')),
+              (['retval', 'out'], POINTER(BSTR), 'strCaption')),
 
     COMMETHOD([], HRESULT, 'put_WindowStyle',
               (['in'], c_long, 'WindowStyle')),
 
     COMMETHOD([], HRESULT, 'get_WindowStyle',
-              (['retval','out'], POINTER(c_long), 'WindowStyle')),
+              (['retval', 'out'], POINTER(c_long), 'WindowStyle')),
 
     COMMETHOD([], HRESULT, 'put_WindowStyleEx',
               (['in'], c_long, 'WindowStyleEx')),
@@ -180,13 +181,13 @@ IVideoWindow._methods_ = [
               (['in'], c_long, 'AutoShow')),
 
     COMMETHOD([], HRESULT, 'get_AutoShow',
-              (['retval','out'], POINTER(c_long), 'AutoShow')),
+              (['retval', 'out'], POINTER(c_long), 'AutoShow')),
 
     COMMETHOD([], HRESULT, 'put_WindowState',
               (['in'], c_long, 'WindowState')),
 
     COMMETHOD([], HRESULT, 'get_WindowState',
-              (['retval','out'], POINTER(c_long), 'WindowState')),
+              (['retval', 'out'], POINTER(c_long), 'WindowState')),
 
     COMMETHOD([], HRESULT, 'put_BackgroundPalette',
               (['in'], c_long, 'BackgroundPalette')),
@@ -288,7 +289,7 @@ IVideoWindow._methods_ = [
 
     COMMETHOD([], HRESULT, 'IsCursorHidden',
               (['out'], POINTER(c_long), 'CursorHidden'))
-    ]
+]
 
 
 class ICaptureGraphBuilder2(IUnknown):
@@ -297,14 +298,59 @@ class ICaptureGraphBuilder2(IUnknown):
     _idlflags_ = []
 
 
-# INCOMPLETE
 ICaptureGraphBuilder2._methods_ = [
     COMMETHOD([], HRESULT, 'SetFiltergraph',
               (['in'], POINTER(qedit.IFilterGraph), 'pfg')),
 
+    COMMETHOD([], HRESULT, 'GetFiltergraph',
+              (['out'], POINTER(POINTER(qedit.IFilterGraph)), 'pfg')),
+
+    COMMETHOD([], HRESULT, 'SetOutputFileName',
+              (['in'], POINTER(GUID), 'pType'),
+              (['in'], LPCOLESTR, 'lpstrFile'),
+              (['out'], POINTER(POINTER(qedit.IBaseFilter)), 'ppf'),
+              (['out'], POINTER(POINTER(qedit.IBaseFilter)), 'pSink')),
+
+    COMMETHOD([], HRESULT, 'FindInterface',
+              (['in'], POINTER(GUID), 'pCategory'),
+              (['in'], POINTER(GUID), 'pType'),
+              (['in'], POINTER(qedit.IBaseFilter), 'pf'),
+              (['in'], REFIID, 'REFIID'),
+              (['out'], POINTER(POINTER(None)), 'ppINT')),
+
     COMMETHOD([], HRESULT, 'RenderStream',
               (['in'], POINTER(GUID), 'pCategory'),
               (['in'], POINTER(GUID), 'pType'),
-              (['in'], POINTER(IUnknown), 'pSource'),
-              (['in'], POINTER(IUnknown), 'pIntermediate'),
-              (['in'], POINTER(IUnknown), 'pSink'))]
+              (['in'], POINTER(qedit.IBaseFilter), 'pSource'),
+              (['in'], POINTER(qedit.IBaseFilter), 'pIntermediate'),
+              (['in'], POINTER(qedit.IBaseFilter), 'pSink')),
+
+    COMMETHOD([], HRESULT, 'ControlStream',
+              (['in'], POINTER(GUID), 'pCategory'),
+              (['in'], POINTER(GUID), 'pType'),
+              (['in'], POINTER(qedit.IBaseFilter), 'pFilter'),
+              (['in'], POINTER(REFERENCE_TIME), 'pstart'),
+              (['in'], POINTER(REFERENCE_TIME), 'pstop'),
+              (['in'], WORD, 'wStartCookie'),
+              (['in'], WORD, 'wStopCookie')),
+
+    COMMETHOD([], HRESULT, 'AllocCapFile',
+              (['in'], LPCOLESTR, 'lpstr'),
+              (['in'], DWORDLONG, 'dwlSize')),
+
+    COMMETHOD([], HRESULT, 'CopyCaptureFile',
+              (['in'], LPOLESTR, 'lpwstrOld'),
+              (['in'], LPOLESTR, 'lpwstrNew'),
+              (['in'], c_int, 'fAllowEscAbort'),
+              (['in'], POINTER(IUnknown), 'pCallback')),
+    # (['in'], POINTER(IAMCopyCaptureFileProgress), 'pCallback'),
+
+    COMMETHOD([], HRESULT, 'FindPin',
+              (['in'], POINTER(qedit.IBaseFilter), 'pSource'),
+              (['in'], c_int, 'pindir'),
+              (['in'], POINTER(GUID), 'pCategory'),
+              (['in'], POINTER(GUID), 'pType'),
+              (['in'], c_int, 'fUnconnected'),
+              (['in'], c_int, 'num'),
+              (['out'], POINTER(POINTER(qedit.IPin)), 'ppPin'))
+]

@@ -27,164 +27,427 @@
 #
 
 import numpy as np
-import time
+import os.path
+from enum import Enum
+from comtypes.persist import IPropertyBag
 
-from pygrabber.dshow_structures import *
+from pygrabber.dshow_core import *
+from pygrabber.windows_media import *
 from pygrabber.dshow_ids import *
 from pygrabber.win_api_extra import *
-from comtypes.persist import IPropertyBag
-from comtypes import *
 
 
-class FilterGraph:
+class StateGraph(Enum):
+    Stopped = 0
+    Paused = 1
+    Running = 2
 
-    def __init__(self):
-        self.filter_graph = client.CreateObject(clsids.CLSID_FilterGraph, interface=qedit.IFilterGraph)
-        self.capture_filter = None
-        self.sample_grabber = None
-        self.sample_grabber_cb = None
-        self.render_filter = None
-        self.image_resolution = None
-        self.media_control = None
-        self.media_event = None
-        self.video_window = None
 
-    def add_input_device(self, index):
-        assert self.capture_filter is None
-        self.capture_filter = _get_filter_by_index(DeviceCategories.CLSID_VideoInputDeviceCategory, index)
-        self.filter_graph.AddFilter(self.capture_filter, _get_filter_name(self.capture_filter))
+class RecordingFormat(Enum):
+    AVI = 0
+    ASF = 1
 
-    def add_sample_grabber(self, callback):
-        assert self.sample_grabber is None
-        sample_grabber = _get_filter_by_CLSID(clsids.CLSID_SampleGrabber)
-        sample_grabber_cast = sample_grabber.QueryInterface(ISampleGrabber)
-        self.sample_grabber_cb = _sample_grabber_callback(callback)
-        sample_grabber_cast.SetCallback(self.sample_grabber_cb, 1)
-        sg_type = qedit._AMMediaType()
-        sg_type.majortype = GUID(MediaTypes.Video)
-        sg_type.subtype = GUID(MediaSubtypes.RGB24)
-        sample_grabber_cast.SetMediaType(sg_type)
-        self.filter_graph.AddFilter(sample_grabber, "Sample grabber")
-        self.sample_grabber = sample_grabber
 
-    def add_null_render(self):
-        assert self.render_filter is None
-        self.render_filter = _get_filter_by_CLSID(clsids.CLSID_NullRender)
-        self.filter_graph.AddFilter(self.render_filter, "Render")
+class FilterType(Enum):
+    video_input = 0
+    audio_input = 1
+    video_compressor = 2
+    audio_compressor = 3
+    sample_grabber = 4
+    render = 5
+    file_sink = 6
+    muxer = 7
+    smart_tee = 8
 
-    def add_default_render(self):
-        assert self.render_filter is None
-        self.render_filter = _get_filter_by_CLSID(clsids.CLSID_VideoRendererDefault)
-        self.filter_graph.AddFilter(self.render_filter, "Render")
 
-    def add_video_mixing_render(self):
-        assert self.render_filter is None
-        self.render_filter = _get_filter_by_CLSID(clsids.CLSID_VideoMixingRenderer)
-        self.filter_graph.AddFilter(self.render_filter, "Render")
+class Filter:
+    # Wrapper around a Direct Show filter
+    def __init__(self, instance, name, capture_builder):
+        self.instance = instance
+        self.capture_builder = capture_builder
+        self.Name = name
+        self.out_pins = []
+        self.in_pins = []
+        self.reload_pins()
 
-    def prepare(self):
-        assert self.capture_filter is not None
-        assert self.render_filter is not None
-        graph_builder = self.filter_graph.QueryInterface(qedit.IGraphBuilder)
-        if self.sample_grabber is None:
-            graph_builder.Connect(_get_pin(self.capture_filter, PIN_OUT), _get_pin(self.render_filter, PIN_IN))
-        else:
-            graph_builder.Connect(_get_pin(self.capture_filter, PIN_OUT), _get_pin(self.sample_grabber, PIN_IN))
-            graph_builder.Connect(_get_pin(self.sample_grabber, PIN_OUT), _get_pin(self.render_filter, PIN_IN))
-            self.sample_grabber_cb.image_resolution = self.get_sample_grabber_resolution()
-        self.media_control = self.filter_graph.QueryInterface(quartz.IMediaControl)
-        self.media_event = self.filter_graph.QueryInterface(quartz.IMediaEvent)
+    def get_out(self):
+        return self.out_pins[0]
 
-    def configure_render(self, handle):
+    def get_in(self, index=0):
+        return self.in_pins[index]
+
+    def find_pin(self, direction, category=None, type=None, unconnected=True):
+        try:
+            return self.capture_builder.FindPin(self.instance, direction, category, type, unconnected, 0)
+        except COMError:
+            return None  # assuming preview pin not found
+
+    def reload_pins(self):
+        # 0 = in, 1 = out
+        self.out_pins = []
+        self.in_pins = []
+        enum = self.instance.EnumPins()
+        pin, count = enum.Next(1)
+        while count > 0:
+            if pin.QueryDirection() == 0:
+                self.in_pins.append(pin)
+            else:
+                self.out_pins.append(pin)
+            pin, count = enum.Next(1)
+
+    def set_properties(self):
+        show_properties(self.instance)
+
+    def get_name(self):
+        filter_info = self.instance.QueryFilterInfo()
+        return wstring_at(filter_info.achName)
+
+    def print_info(self):
+        print(f"Pins of: {self.get_name()}")
+        enum = self.instance.EnumPins()
+        pin, count = enum.Next(1)
+        while count > 0:
+            info = pin.QueryPinInfo()
+            direction, name = (info.dir, wstring_at(info.achName))
+            print(f"PIN {'in' if direction == 0 else 'out'} - {name}")
+            pin, count = enum.Next(1)
+
+
+class VideoInput(Filter):
+    def __init__(self, args, capture_builder):
+        Filter.__init__(self, args[0], args[1], capture_builder)
+
+    def get_current_format(self):
+        stream_config = self.get_out().QueryInterface(IAMStreamConfig)
+        media_type = stream_config.GetFormat()
+        p_video_info_header = cast(media_type.contents.pbFormat, POINTER(VIDEOINFOHEADER))
+        bmp_header = p_video_info_header.contents.bmi_header
+        return bmp_header.biWidth, bmp_header.biHeight
+
+    def set_format(self):
+        show_properties(self.get_out())
+
+
+class AudioInput(Filter):
+    def __init__(self, args, capture_builder):
+        Filter.__init__(self, args[0], args[1], capture_builder)
+
+
+class VideoCompressor(Filter):
+    def __init__(self, args, capture_builder):
+        Filter.__init__(self, args[0], args[1], capture_builder)
+
+
+class AudioCompressor(Filter):
+    def __init__(self, args, capture_builder):
+        Filter.__init__(self, args[0], args[1], capture_builder)
+
+
+class Render(Filter):
+    def __init__(self, instance, capture_builder):
+        Filter.__init__(self, instance, "Render", capture_builder)
+        try:
+            self.video_window = self.instance.QueryInterface(IVideoWindow)
+        except COMError:
+            self.video_window = None # probably interface IVideoWindow not supported because using NullRender
+
+    def configure_video_window(self, handle):
         # must be called after the graph is connected
-        self.video_window = self.render_filter.QueryInterface(IVideoWindow)
         self.video_window.put_Owner(handle)
         self.video_window.put_WindowStyle(WS_CHILD | WS_CLIPSIBLINGS)
 
+    def set_window_position(self, x, y, width, height):
+        self.video_window.SetWindowPosition(x, y, width, height)
+
+
+class SampleGrabber(Filter):
+    def __init__(self, capture_builder):
+        Filter.__init__(self, client.CreateObject(GUID(clsids.CLSID_SampleGrabber), interface=qedit.IBaseFilter), "Sample Grabber", capture_builder)
+        self.sample_grabber = self.instance.QueryInterface(ISampleGrabber)
+        self.callback = None
+
+    def set_callback(self, callback, which_method_to_callback):
+        self.callback = callback
+        self.sample_grabber.SetCallback(callback, which_method_to_callback)
+
+    def set_media_type(self, media_type, media_subtype):
+        sg_type = qedit._AMMediaType()
+        sg_type.majortype = GUID(media_type)
+        sg_type.subtype = GUID(media_subtype)
+        self.sample_grabber.SetMediaType(sg_type)
+
+    def get_resolution(self):
+        media_type = self.sample_grabber.GetConnectedMediaType()
+        p_video_info_header = cast(media_type.pbFormat, POINTER(VIDEOINFOHEADER))
+        bmp_header = p_video_info_header.contents.bmi_header
+        return bmp_header.biWidth, bmp_header.biHeight
+
+    def initialize_after_connection(self):
+        self.callback.image_resolution = self.get_resolution()
+
+
+class SmartTee(Filter):
+    def __init__(self, capture_builder):
+        Filter.__init__(self, client.CreateObject(GUID(clsids.CLSID_SmartTee),interface=qedit.IBaseFilter), "Smart Tee", capture_builder)
+
+
+class Muxer(Filter):
+    def __init__(self, args, capture_builder):
+        Filter.__init__(self, args, "Muxer", capture_builder)
+
+
+class SystemDeviceEnum:
+    def __init__(self):
+        self.system_device_enum = client.CreateObject(clsids.CLSID_SystemDeviceEnum, interface=ICreateDevEnum)
+
+    def get_available_filters(self, category_clsid):
+        filter_enumerator = self.system_device_enum.CreateClassEnumerator(GUID(category_clsid), dwFlags=0)
+        moniker, count = filter_enumerator.Next(1)
+        result = []
+        while count > 0:
+            result.append(get_moniker_name(moniker))
+            moniker, count = filter_enumerator.Next(1)
+        return result
+
+    def get_filter_by_index(self, category_clsid, index):
+        filter_enumerator = self.system_device_enum.CreateClassEnumerator(GUID(category_clsid), dwFlags=0)
+        moniker, count = filter_enumerator.Next(1)
+        i = 0
+        while i != index and count > 0:
+            moniker, count = filter_enumerator.Next(1)
+            i = i + 1
+
+        return moniker.BindToObject(0, 0, qedit.IBaseFilter._iid_).QueryInterface(qedit.IBaseFilter), \
+               get_moniker_name(moniker)
+
+
+class FilterFactory:
+    def __init__(self, system_device_enum, capture_builder):
+        self.system_device_enum = system_device_enum
+        self.capture_builder = capture_builder
+
+    def build_filter(self, filter_type, id):
+        if filter_type == FilterType.video_input:
+            return VideoInput(self.system_device_enum.get_filter_by_index(DeviceCategories.VideoInputDevice, id), self.capture_builder)
+        elif filter_type == FilterType.audio_input:
+            return AudioInput(self.system_device_enum.get_filter_by_index(DeviceCategories.AudioInputDevice, id), self.capture_builder)
+        elif filter_type == FilterType.video_compressor:
+            return VideoCompressor(self.system_device_enum.get_filter_by_index(DeviceCategories.VideoCompressor, id), self.capture_builder)
+        elif filter_type == FilterType.audio_compressor:
+            return AudioCompressor(self.system_device_enum.get_filter_by_index(DeviceCategories.AudioCompressor, id), self.capture_builder)
+        elif filter_type == FilterType.render:
+            return Render(client.CreateObject(GUID(id), interface=qedit.IBaseFilter), self.capture_builder)
+        elif filter_type == FilterType.sample_grabber:
+            return SampleGrabber(self.capture_builder)
+        elif filter_type == FilterType.muxer:
+            return Muxer(id, self.capture_builder)
+        elif filter_type == FilterType.smart_tee:
+            return SmartTee(self.capture_builder)
+        else:
+            raise ValueError('Cannot create filter', filter_type, id)
+
+
+class MediaType:
+    def __init__(self, majortype_guid, subtype_guid):
+        self.instance = qedit._AMMediaType()
+        self.instance.majortype = GUID(majortype_guid)
+        self.instance.subtype = GUID(subtype_guid)
+
+
+class WmProfileManager:
+    def __init__(self):
+        self.profile_manager = POINTER(IWMProfileManager2)()
+        WMCreateProfileManager(byref(self.profile_manager))
+        self.profile_manager.SetSystemProfileVersion(0x00080000)
+        self.profiles, self.profiles_names = self.__load_profiles()
+
+    def __load_profiles(self):
+        nr_profiles = self.profile_manager.GetSystemProfileCount()
+        profiles = [self.profile_manager.LoadSystemProfile(i) for i in range(0, nr_profiles)]
+        profiles_names = []
+        buf = create_unicode_buffer(200)
+        for profile in profiles:
+            i = DWORD(200)
+            profile.GetName(buf, pointer(i))
+            profiles_names.append(buf.value)
+        return profiles, profiles_names
+
+
+class FilterGraph:
+    def __init__(self):
+        self.filter_graph = client.CreateObject(clsids.CLSID_FilterGraph, interface=qedit.IFilterGraph)
+        self.graph_builder = self.filter_graph.QueryInterface(qedit.IGraphBuilder)
+        self.media_control = self.filter_graph.QueryInterface(quartz.IMediaControl)
+        self.media_event = self.filter_graph.QueryInterface(quartz.IMediaEvent)
+        self.capture_builder = client.CreateObject(clsids.CLSID_CaptureGraphBuilder2, interface=ICaptureGraphBuilder2)
+        self.capture_builder.SetFiltergraph(self.filter_graph)
+
+        self.system_device_enum = SystemDeviceEnum()
+        self.filter_factory = FilterFactory(self.system_device_enum, self.capture_builder)
+        self.wm_profile_manager = WmProfileManager()
+
+        self.filters = {}
+        self.recording_format = None
+        self.is_recording = False
+
+    def __add_filter(self, filter_type, filter_id):
+        assert not(filter_type in self.filters)
+        filter = self.filter_factory.build_filter(filter_type, filter_id)
+        self.filters[filter_type] = filter
+        self.filter_graph.AddFilter(filter.instance, filter.Name)
+
+    def add_video_input_device(self, index):
+        self.__add_filter(FilterType.video_input, index)
+
+    def add_audio_input_device(self, index):
+        self.__add_filter(FilterType.audio_input, index)
+
+    def add_video_compressor(self, index):
+        self.__add_filter(FilterType.video_compressor, index)
+
+    def add_audio_compressor(self, index):
+        self.__add_filter(FilterType.audio_compressor, index)
+
+    def add_sample_grabber(self, callback):
+        self.__add_filter(FilterType.sample_grabber, None)
+        sample_grabber = self.filters[FilterType.sample_grabber]
+        sample_grabber_cb = SampleGrabberCallback(callback)
+        sample_grabber.set_callback(sample_grabber_cb, 1)
+        sample_grabber.set_media_type(MediaTypes.Video, MediaSubtypes.RGB24)
+
+    def add_null_render(self):
+        self.__add_filter(FilterType.render, clsids.CLSID_NullRender)
+
+    def add_default_render(self):
+        self.__add_filter(FilterType.render, clsids.CLSID_VideoRendererDefault)
+
+    def add_video_mixing_render(self):
+        self.__add_filter(FilterType.render, clsids.CLSID_VideoMixingRenderer)
+
+    def add_file_writer_and_muxer(self, filename):
+        extension = os.path.splitext(filename)[1].upper()
+        mediasubtype = MediaSubtypes.ASF if extension == ".WMV" else MediaSubtypes.AVI
+        self.recording_format = RecordingFormat.ASF if extension == ".WMV" else RecordingFormat.AVI
+        mux, filesink = self.capture_builder.SetOutputFileName(GUID(mediasubtype), filename)
+        self.filters[FilterType.muxer] = self.filter_factory.build_filter(FilterType.muxer, mux)
+
+    def configure_asf_compressor(self):
+        pass
+        # asf_config = self.mux.QueryInterface(IConfigAsfWriter)
+        # print(asf_config.GetCurrentProfileGuid())
+        #profile = asf_config.GetCurrentProfile()
+
+    def prepare_preview_graph(self):
+        assert FilterType.video_input in self.filters
+        assert FilterType.render in self.filters
+        if FilterType.sample_grabber not in self.filters:
+            self.graph_builder.Connect(self.filters[FilterType.video_input].get_out(),
+                                       self.filters[FilterType.render].get_in())
+        else:
+            self.graph_builder.Connect(self.filters[FilterType.video_input].get_out(),
+                                       self.filters[FilterType.sample_grabber].get_in())
+            self.graph_builder.Connect(self.filters[FilterType.sample_grabber].get_out(),
+                                       self.filters[FilterType.render].get_in())
+            self.filters[FilterType.sample_grabber].initialize_after_connection()
+        self.is_recording = False
+
+    def __get_capture_and_preview_pins(self):
+        preview_pin = self.filters[FilterType.video_input].find_pin(PIN_OUT, category=GUID(PinCategory.Preview))
+        capture_pin = self.filters[FilterType.video_input].find_pin(PIN_OUT, category=GUID(PinCategory.Capture))
+
+        if (preview_pin is None) or (capture_pin is None):
+            self.__add_filter(FilterType.smart_tee, None)
+            smart_tee = self.filters[FilterType.smart_tee]
+            self.graph_builder.Connect(capture_pin if capture_pin is not None else preview_pin, smart_tee.get_in())
+            # assuming the 1st output pin of the smart tee filter is always the capture one
+            capture_pin, preview_pin = smart_tee.out_pins
+
+        return preview_pin, capture_pin
+
+    def prepare_recording_graph(self):
+        #  in theory we could use self.capture_builder.RenderStream,
+        #  but it is not working when including the video compressor :-(
+        assert FilterType.video_input in self.filters
+        assert FilterType.render in self.filters
+        assert FilterType.muxer in self.filters
+
+        preview_pin, capture_pin = self.__get_capture_and_preview_pins()
+
+        if self.recording_format == RecordingFormat.ASF:
+            self.graph_builder.Connect(capture_pin,
+                                       self.filters[FilterType.muxer].get_in(1))
+            self.graph_builder.Connect(self.filters[FilterType.audio_input].get_out(),
+                                       self.filters[FilterType.muxer].get_in(0))
+            self.graph_builder.Connect(preview_pin, self.filters[FilterType.render].get_in())
+
+        else:
+            self.graph_builder.Connect(capture_pin, self.filters[FilterType.video_compressor].get_in())
+            self.graph_builder.Connect(self.filters[FilterType.video_compressor].get_out(),
+                                       self.filters[FilterType.muxer].get_in())
+            self.graph_builder.Connect(preview_pin, self.filters[FilterType.render].get_in())
+
+            if FilterType.audio_input in self.filters:
+                self.graph_builder.Connect(self.filters[FilterType.audio_input].get_out(),
+                                           self.filters[FilterType.audio_compressor].get_in())
+                self.filters[FilterType.muxer].reload_pins()
+                # when you connect an input pin of the muxer, an additional input pin is added
+                self.graph_builder.Connect(self.filters[FilterType.audio_compressor].get_out(),
+                                           self.filters[FilterType.muxer].get_in(1))
+
+        self.is_recording = True
+
+    def configure_render(self, handle):
+        self.filters[FilterType.render].configure_video_window(handle)
+
     def update_window(self, width, height):
-        if self.video_window is not None:
-            img_w, img_h = self.get_sample_grabber_resolution()
-            scale_w = width/img_w
-            scale_h = height/img_h
+        if FilterType.render in self.filters:
+            img_w, img_h = self.filters[FilterType.video_input].get_current_format()
+            scale_w = width / img_w
+            scale_h = height / img_h
             scale = min(scale_w, scale_h, 1)
-            self.video_window.SetWindowPosition(0, 0, int(img_w*scale), int(img_h*scale))
+            self.filters[FilterType.render].set_window_position(0, 0, int(img_w * scale), int(img_h * scale))
 
     def run(self):
         self.media_control.Run()
 
     def stop(self):
-        self.media_control.Stop()
-        if self.video_window is not None:
-            self.video_window.put_Visible(False)
-            self.video_window.put_Owner(0)
+        if self.media_control is not None:
+            # calling stop without calling prepare
+            self.media_control.Stop()
+        # if self.video_window is not None:
+            # self.video_window.put_Visible(False)
+            # self.video_window.put_Owner(0)
 
     def pause(self):
         self.media_control.Pause()
 
     def get_state(self):
-        return self.media_control.GetState(0xFFFFFFFF)  # 0xFFFFFFFF = infinite timeout
-
-    def set_properties(self, filter):
-        try:
-            spec_pages = filter.QueryInterface(ISpecifyPropertyPages)
-            cauuid = spec_pages.GetPages()
-            if cauuid.element_count > 0:
-                whandle = windll.user32.GetTopWindow(None)
-                OleCreatePropertyFrame(
-                    whandle,
-                    0, 0, None,
-                    1, byref(cast(filter, LPUNKNOWN)),
-                    cauuid.element_count, cauuid.elements,
-                    0, 0, None)
-                windll.ole32.CoTaskMemFree(cauuid.elements)
-        except COMError:
-            pass
+        return StateGraph(self.media_control.GetState(0xFFFFFFFF))  # 0xFFFFFFFF = infinite timeout
 
     def get_input_devices(self):
-        return _get_available_filters(DeviceCategories.CLSID_VideoInputDeviceCategory)
+        return self.system_device_enum.get_available_filters(DeviceCategories.VideoInputDevice)
 
-    def get_formats(self):
-        out_pin = _get_pin(self.capture_filter, PIN_OUT)
-        stream_config = out_pin.QueryInterface(IAMStreamConfig)
-        count, size = stream_config.GetNumberOfCapabilities()
-        buffer = (c_ubyte * size)()
-        result = []
-        for i in range(0, count):
-            media_type = stream_config.GetStreamCaps(i, buffer)
-            p_video_info_header = cast(media_type.contents.pbFormat, POINTER(VIDEOINFOHEADER))
-            bmp_header = p_video_info_header.contents.bmi_header
-            if bmp_header.biWidth > 0 and bmp_header.biHeight > 0:
-                result.append((
-                    i,
-                    subtypes[str(media_type.contents.subtype)],
-                    bmp_header.biWidth,
-                    bmp_header.biHeight,
-                    bmp_header.biBitCount))
-        return result
+    def get_audio_devices(self):
+        return self.system_device_enum.get_available_filters(DeviceCategories.AudioInputDevice)
 
-    def set_format(self, index):
-        out_pin = _get_pin(self.capture_filter, PIN_OUT)
-        stream_config = out_pin.QueryInterface(IAMStreamConfig)
-        count, size = stream_config.GetNumberOfCapabilities()
-        buffer = (c_ubyte * size)()
-        media_type = stream_config.GetStreamCaps(index, buffer)
-        stream_config.SetFormat(media_type)
+    def get_video_compressors(self):
+        return self.system_device_enum.get_available_filters(DeviceCategories.VideoCompressor)
 
-    def get_sample_grabber_resolution(self):
-        sample_grabber_cast = self.sample_grabber.QueryInterface(ISampleGrabber)
-        media_type = sample_grabber_cast.GetConnectedMediaType()
-        p_video_info_header = cast(media_type.pbFormat, POINTER(VIDEOINFOHEADER))
-        bmp_header = p_video_info_header.contents.bmi_header
-        return bmp_header.biWidth, bmp_header.biHeight
+    def get_audio_compressors(self):
+        return self.system_device_enum.get_available_filters(DeviceCategories.AudioCompressor)
 
-    def display_format_dialog(self):
-        self.set_properties(_get_pin(self.capture_filter, PIN_OUT))
+    def get_asf_profiles(self):
+        return self.wm_profile_manager.profiles_names
 
     def grab_frame(self):
-        self.sample_grabber_cb.keep_photo = True
+        if FilterType.sample_grabber in self.filters:
+            self.filters[FilterType.sample_grabber].callback.grab_frame()
+            return True
+        else:
+            return False
 
     def get_input_device(self):
-        return self.capture_filter
+        return self.filters[FilterType.video_input]
 
     def remove_filters(self):
         enum_filters = self.filter_graph.EnumFilters()
@@ -193,9 +456,67 @@ class FilterGraph:
             self.filter_graph.RemoveFilter(filt)
             enum_filters.Reset()
             filt, count = enum_filters.Next(1)
+        self.filters = {}
+
+    def remove_all_filters_but_video_source(self):
+        video_input = self.filters[FilterType.video_input]
+        enum_filters = self.filter_graph.EnumFilters()
+        filters_to_delete = []
+        filt, count = enum_filters.Next(1)
+        while count > 0:
+            if filt != video_input.instance:
+                filters_to_delete.append(filt)
+            filt, count = enum_filters.Next(1)
+        for filt in filters_to_delete:
+            self.filter_graph.RemoveFilter(filt)
+        self.filters = {FilterType.video_input: video_input}
+
+    def print_debug_info(self):
+        helper = FilterGraphDebugHelper(self.filter_graph)
+        helper.print_graph_info()
 
 
-class _sample_grabber_callback(COMObject):
+class FilterGraphDebugHelper:
+
+    def __init__(self, filter_graph):
+        self.filter_graph = filter_graph
+
+    def print_graph_info(self):
+        enum_filters = self.filter_graph.EnumFilters()
+        filt, count = enum_filters.Next(1)
+        while count > 0:
+            filterName = self.get_filter_name(filt)
+            print(f"FILTER {filterName} [{filt}]")
+
+            enum_pins = filt.EnumPins()
+            pin, count = enum_pins.Next(1)
+            while count > 0:
+                pin_name, direction, connected_pin, owner = self.get_pin_info(pin)
+                if connected_pin is not None:
+                    connected_pin_name, _, _, connected_filter = self.get_pin_info(connected_pin)
+                    connected_filter_name = self.get_filter_name(connected_filter)
+
+                print(f" - PIN {pin_name} {'in' if direction == 0 else 'out'} - Connected to: {connected_filter_name} [{pin}]")
+
+                pin, count = enum_pins.Next(1)
+            filt, count = enum_filters.Next(1)
+
+    def get_filter_name(self, filter):
+        filter_info = filter.QueryFilterInfo()
+        return wstring_at(filter_info.achName)
+
+    def get_pin_info(self, pin):
+        info = pin.QueryPinInfo()
+        name = wstring_at(info.achName)
+        owner_filter = info.pFilter
+        try:
+            connected_pin = pin.ConnectedTo()
+        except:
+            connected_pin = None
+        return name, info.dir, connected_pin, owner_filter
+
+
+class SampleGrabberCallback(COMObject):
     _com_interfaces_ = [qedit.ISampleGrabberCB]
 
     def __init__(self, callback):
@@ -203,7 +524,10 @@ class _sample_grabber_callback(COMObject):
         self.cnt = 0
         self.keep_photo = False
         self.image_resolution = None
-        super(_sample_grabber_callback, self).__init__()
+        super(SampleGrabberCallback, self).__init__()
+
+    def grab_frame(self):
+        self.keep_photo = True
 
     def SampleCB(self, this, SampleTime, pSample):
         return 0
@@ -228,68 +552,23 @@ class _sample_grabber_callback(COMObject):
     #     return 0
 
 
-def _get_available_filters(category_clsid):
-    system_device_enum = client.CreateObject(clsids.CLSID_SystemDeviceEnum, interface=ICreateDevEnum)
-    filter_enumerator = system_device_enum.CreateClassEnumerator(GUID(category_clsid), dwFlags=0)
-    moniker, count = filter_enumerator.Next(1)
-    result = []
-    while count > 0:
-        result.append(_get_filter_name(moniker))
-        moniker, count = filter_enumerator.Next(1)
-    return result
+def get_moniker_name(moniker):
+    property_bag = moniker.BindToStorage(0, 0, IPropertyBag._iid_).QueryInterface(IPropertyBag)
+    return property_bag.Read("FriendlyName", pErrorLog=None)
 
 
-def _get_filter_name(arg):
-    if type(arg) == POINTER(IMoniker):
-        property_bag = arg.BindToStorage(0, 0, IPropertyBag._iid_).QueryInterface(IPropertyBag)
-        return property_bag.Read("FriendlyName", pErrorLog=None)
-    elif type(arg) == POINTER(qedit.IBaseFilter):
-        filter_info = arg.QueryFilterInfo()
-        return wstring_at(filter_info.achName)
-    else:
-        return None
-
-
-def _get_filter_by_index(category_clsid, index):
-    system_device_enum = client.CreateObject(clsids.CLSID_SystemDeviceEnum, interface=ICreateDevEnum)
-    filter_enumerator = system_device_enum.CreateClassEnumerator(GUID(category_clsid), dwFlags=0)
-    if index > 0:
-        _ = filter_enumerator.Next(index)
-    moniker, _ = filter_enumerator.Next(1)
-    return moniker.BindToObject(0, 0, qedit.IBaseFilter._iid_).QueryInterface(qedit.IBaseFilter)
-
-
-def _get_filter_by_CLSID(clsid):
-    return client.CreateObject(clsid, interface=qedit.IBaseFilter)
-
-
-def _get_pin(filter, direction):
-    # 0 = in, 1 = out
-    enum = filter.EnumPins()
-    pin, count = enum.Next(1)
-    while count > 0:
-        if pin.QueryDirection() == direction:
-            return pin
-        pin, count = enum.Next(1)
-    return None
-
-
-def print_graph_filters(filter_graph):
-    print("Filters in graph:")
-    enum_filters = filter_graph.EnumFilters()
-    filt, count = enum_filters.Next(1)
-    while count > 0:
-        print(_get_filter_name(filt))
-        filt, count = enum_filters.Next(1)
-    print("---")
-
-
-def print_filter_pins(filter):
-    print(f"Pins of: {_get_filter_name(filter)}")
-    enum = filter.EnumPins()
-    pin, count = enum.Next(1)
-    while count > 0:
-        info = pin.QueryPinInfo()
-        direction, name = (info.dir, wstring_at(info.achName))
-        print(f"PIN {direction} - {name}")
-        pin, count = enum.Next(1)
+def show_properties(object):
+    try:
+        spec_pages = object.QueryInterface(ISpecifyPropertyPages)
+        cauuid = spec_pages.GetPages()
+        if cauuid.element_count > 0:
+            whandle = windll.user32.GetTopWindow(None)
+            OleCreatePropertyFrame(
+                whandle,
+                0, 0, None,
+                1, byref(cast(object, LPUNKNOWN)),
+                cauuid.element_count, cauuid.elements,
+                0, 0, None)
+            windll.ole32.CoTaskMemFree(cauuid.elements)
+    except COMError:
+        pass

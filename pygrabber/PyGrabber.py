@@ -33,24 +33,58 @@ class PyGrabber:
     def __init__(self, callback):
         self.graph = FilterGraph()
         self.callback = callback
+        self.preview_graph_prepared = False
+        self.recording_prepared = False
 
-    def get_devices(self):
+    def get_video_devices(self):
         return self.graph.get_input_devices()
+
+    def get_audio_devices(self):
+        return self.graph.get_audio_devices()
+
+    def get_video_compressors(self):
+        return self.graph.get_video_compressors()
+
+    def get_audio_compressors(self):
+        return self.graph.get_audio_compressors()
+
+    def get_asf_profiles(self):
+        return self.graph.get_asf_profiles()
 
     def get_formats(self):
         return self.graph.get_formats()
 
     def set_device(self, input_device_index):
-        self.graph.add_input_device(input_device_index)
+        self.graph.add_video_input_device(input_device_index)
 
-    def display_format_dialog(self):
-        self.graph.display_format_dialog()
+    def start_preview(self, handle):
+        if not self.preview_graph_prepared:
+            if self.recording_prepared:
+                self.graph.remove_all_filters_but_video_source()
+                self.recording_prepared = False
 
-    def start(self, handle):
-        self.graph.add_sample_grabber(self.callback)
+            self.graph.add_sample_grabber(self.callback)
+            self.graph.add_default_render()
+            self.graph.prepare_preview_graph()
+            self.graph.configure_render(handle)
+            self.preview_graph_prepared = True
+        self.graph.run()
+
+    def start_recording(self, audio_device_index, video_compressor_index, audio_compressor_index, filename, handle):
+        self.graph.stop()
+        self.preview_graph_prepared = False
+        self.graph.remove_all_filters_but_video_source()
         self.graph.add_default_render()
-        self.graph.prepare()
+        if video_compressor_index is not None:
+            self.graph.add_video_compressor(video_compressor_index)
+        if audio_device_index is not None:
+            self.graph.add_audio_input_device(audio_device_index)
+            if audio_compressor_index is not None:
+                self.graph.add_audio_compressor(audio_compressor_index)
+        self.graph.add_file_writer_and_muxer(filename)
+        self.graph.prepare_recording_graph()
         self.graph.configure_render(handle)
+        self.recording_prepared = True
         self.graph.run()
 
     def stop(self):
@@ -60,7 +94,22 @@ class PyGrabber:
         self.graph.update_window(width, height)
 
     def set_device_properties(self):
-        self.graph.set_properties(self.graph.get_input_device())
+        self.graph.get_input_device().set_properties()
+
+    def display_format_dialog(self):
+        self.graph.get_input_device().set_format()
 
     def grab_frame(self):
         self.graph.grab_frame()
+
+    def get_status(self):
+        graph_state = self.graph.get_state()
+        device_name = self.graph.get_input_device().Name
+        resolution = self.graph.get_input_device().get_current_format()
+        if graph_state == StateGraph.Stopped:
+            return "Stopped"
+        elif graph_state == StateGraph.Running:
+            return f"{'Recording' if self.graph.is_recording else 'Playing'} {device_name} [{resolution[0]}x{resolution[1]}]"
+        elif graph_state == StateGraph.Paused:
+            return f"Connected to {device_name} - paused"
+        return None

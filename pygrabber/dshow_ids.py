@@ -6,23 +6,23 @@
 #
 # Copyright (C) 2019 Andrea Schiavinato
 #
-# Permission is hereby granted, free of charge, to any person obtaining
+# Permission is hereby grantedfree of chargeto any person obtaining
 # a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
+# "Software")to deal in the Software without restrictionincluding
+# without limitation the rights to usecopymodifymergepublish,
+# distributesublicenseand/or sell copies of the Softwareand to
+# permit persons to whom the Software is furnished to do sosubject to
 # the following conditions:
 #
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# THE SOFTWARE IS PROVIDED "AS IS"WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIEDINCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITYFITNESS FOR A PARTICULAR PURPOSE AND
 # NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# LIABLE FOR ANY CLAIMDAMAGES OR OTHER LIABILITYWHETHER IN AN ACTION
+# OF CONTRACTTORT OR OTHERWISEARISING FROMOUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
@@ -38,20 +38,30 @@ class clsids:
     CLSID_VideoRendererDefault     = "{6BC1CFFA-8FC1-4261-AC22-CFB4CC38DB50}"
     CLSID_NullRender               = "{C1F400A4-3F08-11D3-9F0B-006008039E37}"
     CLSID_VideoMixingRenderer      = "{B87BEB7B-8D29-423f-AE4D-6582C10175AC}"
+    CLSID_SmartTee                 = "{CC58E280-8AA1-11d1-B3F1-00AA003761C5}"
 
 
 class DeviceCategories:
-    CLSID_VideoInputDeviceCategory = "{860BB310-5D01-11d0-BD3B-00A0C911CE86}"
-    CLSID_LegacyAmFilterCategory   = "{083863F1-70DE-11d0-BD40-00A0C911CE86}"
+    VideoInputDevice = "{860bb310-5d01-11d0-bd3b-00a0c911ce86}"
+    AudioInputDevice = "{33d9a762-90c8-11d0-bd43-00a0c911ce86}"
+    VideoCompressor  = "{33d9a760-90c8-11d0-bd43-00a0c911ce86}"
+    AudioCompressor  = "{33d9a761-90c8-11d0-bd43-00a0c911ce86}"
+    LegacyAmFilter   = "{083863F1-70DE-11d0-BD40-00A0C911CE86}"
 
 
 class MediaTypes:
     Video = "{73646976-0000-0010-8000-00AA00389B71}"
-
+    Audio = "{73647561-0000-0010-8000-00aa00389b71}"
 
 class MediaSubtypes:
     RGB24 = "{e436eb7d-524f-11ce-9f53-0020af0ba770}"
+    AVI   = "{e436eb88-524f-11ce-9f53-0020af0ba770}"
+    ASF   = "{3db80f90-9412-11d1-aded-0000f8754b99}"
 
+
+class PinCategory:
+    Preview = "{fb6c4282-0353-11d1-905f-0000c0cc16ba}"
+    Capture = "{fb6c4281-0353-11d1-905f-0000c0cc16ba}"
 
 subtypes = {
     '{4C504C43-0000-0010-8000-00AA00389B71}': 'CLPL',
