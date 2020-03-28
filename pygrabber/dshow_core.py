@@ -32,9 +32,9 @@ from pygrabber.moniker import *
 from pygrabber.win_common_types import *
 from comtypes import *
 from comtypes import client
-from ctypes.wintypes import RECT, ULONG, LPOLESTR, DWORD
+from ctypes.wintypes import RECT, SIZE, ULONG, LPOLESTR, DWORD, LONG
 from comtypes.automation import IDispatch
-from ctypes import c_int
+from ctypes import c_int, c_long, c_longlong
 
 qedit = client.GetModule("qedit.dll")
 quartz = client.GetModule("quartz.dll")
@@ -68,6 +68,32 @@ class VIDEOINFOHEADER(Structure):
         ('bit_error_rate', DWORD),
         ('avg_time_per_frame', REFERENCE_TIME),
         ('bmi_header', BITMAPINFOHEADER),
+    )
+
+
+class VIDEO_STREAM_CONFIG_CAPS(Structure):
+    _fields_ = (
+        ('guid', GUID),
+        ('VideoStandard', ULONG),
+        ('InputSize', SIZE),
+        ('MinCroppingSize', SIZE),
+        ('MaxCroppingSize', SIZE),
+        ('CropGranularityX', c_int),
+        ('CropGranularityY', c_int),
+        ('CropAlignX', c_int),
+        ('CropAlignY', c_int),
+        ('MinOutputSize', SIZE),
+        ('MaxOutputSize', SIZE),
+        ('OutputGranularityX', c_int),
+        ('OutputGranularityX', c_int),
+        ('StretchTapsX', c_int),
+        ('StretchTapsY', c_int),
+        ('ShrinkTapsX', c_int),
+        ('ShrinkTapsY', c_int),
+        ('MinFrameInterval', c_longlong),
+        ('MaxFrameInterval', c_longlong),
+        ('MinBitsPerSecond', LONG),
+        ('MaxBitsPerSecond', LONG)
     )
 
 
@@ -127,10 +153,10 @@ IAMStreamConfig._methods_ = [
               (['out'], POINTER(c_int), 'piCount'),
               (['out'], POINTER(c_int), 'piSize')
               ),
-    COMMETHOD([], HRESULT, 'GetStreamCaps',
+    COMMETHOD([], HRESULT, 'GetStreamCaps', #https://docs.microsoft.com/en-us/previous-versions/ms784114(v%3Dvs.85)
               (['in'], c_int, 'iIndex'),
               (['out'], POINTER(POINTER(qedit._AMMediaType)), 'pmt'),
-              (['in'], POINTER(c_ubyte), 'pSCC'))]
+              (['out'], POINTER(VIDEO_STREAM_CONFIG_CAPS), 'pSCC'))]
 
 
 class ISpecifyPropertyPages(IUnknown):

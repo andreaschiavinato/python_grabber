@@ -3,7 +3,7 @@
 # the second is the default render, that shows the images from the camera in a window on the screen.
 # Then we call prepare, that connects the two filters together, and run, to execute the graph.
 # Finally, we need a method to pause the program while watching the camera video.
-# I use the Tkinter mainloop function which fetches and handles Windows events, so the application doesn’t seem frozen.
+# I use the Tkinter mainloop function which fetches and handles Windows events, so the application does't seem frozen.
 
 from pygrabber.dshow_graph import FilterGraph
 from tkinter import Tk

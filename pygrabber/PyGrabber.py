@@ -51,9 +51,6 @@ class PyGrabber:
     def get_asf_profiles(self):
         return self.graph.get_asf_profiles()
 
-    def get_formats(self):
-        return self.graph.get_formats()
-
     def set_device(self, input_device_index):
         self.graph.add_video_input_device(input_device_index)
 
@@ -97,7 +94,7 @@ class PyGrabber:
         self.graph.get_input_device().set_properties()
 
     def display_format_dialog(self):
-        self.graph.get_input_device().set_format()
+        self.graph.get_input_device().show_format_dialog()
 
     def grab_frame(self):
         self.graph.grab_frame()

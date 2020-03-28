@@ -124,7 +124,32 @@ class VideoInput(Filter):
         bmp_header = p_video_info_header.contents.bmi_header
         return bmp_header.biWidth, bmp_header.biHeight
 
-    def set_format(self):
+    def get_formats(self):
+        # https://docs.microsoft.com/en-us/windows/win32/directshow/configure-the-video-output-format
+        stream_config = self.get_out().QueryInterface(IAMStreamConfig)
+        media_types_count, _ = stream_config.GetNumberOfCapabilities()
+        result = []
+        for i in range(0, media_types_count):
+            media_type, capability = stream_config.GetStreamCaps(i)
+            p_video_info_header = cast(media_type.contents.pbFormat, POINTER(VIDEOINFOHEADER))
+            bmp_header = p_video_info_header.contents.bmi_header
+            result.append({
+                'index': i,
+                'media_type_str': subtypes[str(media_type.contents.subtype)],
+                'width': bmp_header.biWidth,
+                'height': bmp_header.biHeight,
+                'min_framerate': 10000000 / capability.MinFrameInterval,
+                'max_framerate': 10000000 / capability.MaxFrameInterval
+            })
+            #print(f"{capability.MinOutputSize.cx}x{capability.MinOutputSize.cx} - {capability.MaxOutputSize.cx}x{capability.MaxOutputSize.cx}")
+        return result
+
+    def set_format(self, format_index):
+        stream_config = self.get_out().QueryInterface(IAMStreamConfig)
+        media_type, _ = stream_config.GetStreamCaps(format_index)
+        stream_config.SetFormat(media_type)
+
+    def show_format_dialog(self):
         show_properties(self.get_out())
 
 
