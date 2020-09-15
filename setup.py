@@ -8,4 +8,9 @@ setup(name='pygrabber',
         author_email='',
         license='MIT',
         packages=['pygrabber'],
+        install_requires=[
+            "comtypes==1.1.7",
+            "numpy==1.17.3",
+            "opencv-python==4.1.1.26"
+        ],
         zip_safe=False)
