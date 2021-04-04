@@ -2,5 +2,6 @@
 
 from pygrabber.dshow_graph import FilterGraph
 
-graph = FilterGraph()
-print(graph.get_input_devices())
+if __name__ == "__main__":
+    graph = FilterGraph()
+    print(graph.get_input_devices())

@@ -8,11 +8,12 @@
 from pygrabber.dshow_graph import FilterGraph
 from tkinter import Tk
 
-graph = FilterGraph()
-graph.add_video_input_device(0)
-graph.add_default_render()
-graph.prepare_preview_graph()
-graph.run()
-root = Tk()
-root.withdraw() # hide Tkinter main window
-root.mainloop()
+if __name__ == "__main__":
+    graph = FilterGraph()
+    graph.add_video_input_device(0)
+    graph.add_default_render()
+    graph.prepare_preview_graph()
+    graph.run()
+    root = Tk()
+    root.withdraw() # hide Tkinter main window
+    root.mainloop()

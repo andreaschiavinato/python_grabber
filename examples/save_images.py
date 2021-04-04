@@ -1,3 +1,5 @@
+# Captures a frame from the camera every second and save it to a file
+
 import cv2
 from datetime              import datetime
 from threading             import Event, Thread

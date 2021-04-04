@@ -5,7 +5,7 @@
 
 import threading
 import matplotlib.pyplot as plt
-import numpy as np
+import numpy             as np
 from pygrabber.dshow_graph import FilterGraph
 
 image_done = threading.Event()
@@ -17,16 +17,17 @@ def img_cb(image):
     image_grabbed = np.flip(image, 2)
     image_done.set()
 
-graph = FilterGraph()
-graph.add_video_input_device(0)
-graph.add_sample_grabber(img_cb)
-graph.add_null_render()
-graph.prepare_preview_graph()
-graph.run()
-input("Press ENTER to grab photo")
-graph.grab_frame()
-image_done.wait(1000)
-graph.stop()
-plt.imshow(image_grabbed)
-plt.show()
+if __name__ == "__main__":
+    graph = FilterGraph()
+    graph.add_video_input_device(0)
+    graph.add_sample_grabber(img_cb)
+    graph.add_null_render()
+    graph.prepare_preview_graph()
+    graph.run()
+    input("Press ENTER to grab photo")
+    graph.grab_frame()
+    image_done.wait(1000)
+    graph.stop()
+    plt.imshow(image_grabbed)
+    plt.show()
 

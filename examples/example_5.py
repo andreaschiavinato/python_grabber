@@ -2,7 +2,7 @@
 
 import threading
 import matplotlib.pyplot as plt
-import numpy as np
+import numpy             as np
 from pygrabber.dshow_graph import FilterGraph
 
 
@@ -30,20 +30,20 @@ class Camera:
         self.image_done.wait(1000)
         return self.image_grabbed
 
-
-print("Opening first camera")
-camera1 = Camera(0)
-print("Opening second camera")
-camera2 = Camera(1)
-input("Press ENTER to grab photos")
-camera1.capture()
-camera2.capture()
-print("Waiting images")
-image1 = camera1.wait_image()
-image2 = camera2.wait_image()
-print("Done")
-ax1 = plt.subplot(2, 1, 1)
-ax1.imshow(image1)
-ax2 = plt.subplot(2, 1, 2)
-ax2.imshow(image2)
-plt.show()
+if __name__ == "__main__":
+    print("Opening first camera")
+    camera1 = Camera(0)
+    print("Opening second camera")
+    camera2 = Camera(1)
+    input("Press ENTER to grab photos")
+    camera1.capture()
+    camera2.capture()
+    print("Waiting images")
+    image1 = camera1.wait_image()
+    image2 = camera2.wait_image()
+    print("Done")
+    ax1 = plt.subplot(2, 1, 1)
+    ax1.imshow(image1)
+    ax2 = plt.subplot(2, 1, 2)
+    ax2.imshow(image2)
+    plt.show()

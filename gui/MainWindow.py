@@ -29,12 +29,11 @@
 import queue
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from tkinter import filedialog
 
 from gui.SelectDevice import *
 from gui.ConfigureRecording import *
 from pygrabber.PyGrabber import *
-from pygrabber.image_process import *
+from gui.image_process import *
 
 
 class MainWindow:
