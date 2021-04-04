@@ -21,7 +21,7 @@ print(graph.get_input_devices())
 ## Save images example
 ```python
 
-# Captures a frame from the camera every second and save it to a file
+# Captures a frame from the first camera found on your computer every second and saves it to a file
 
 import cv2
 from datetime              import datetime
@@ -97,4 +97,4 @@ See also the other examples on the "examples" folder and the article https://www
 
 ## Sample GUI application
 
-The file run_gui.py will run a tool with a GUI that enabled you to use a camera connected to your system, capture still frames or videos, do basic image porcessing. 
+The file run_gui.py will run a tool with a GUI that enables you to use a camera connected to your system, capture still frames or videos, do basic image porcessing. 
