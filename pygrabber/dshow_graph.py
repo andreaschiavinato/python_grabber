@@ -227,7 +227,10 @@ class SystemDeviceEnum:
 
     def get_available_filters(self, category_clsid):
         filter_enumerator = self.system_device_enum.CreateClassEnumerator(GUID(category_clsid), dwFlags=0)
-        moniker, count = filter_enumerator.Next(1)
+        try:
+            moniker, count = filter_enumerator.Next(1)
+        except ValueError:
+            return []
         result = []
         while count > 0:
             result.append(get_moniker_name(moniker))
