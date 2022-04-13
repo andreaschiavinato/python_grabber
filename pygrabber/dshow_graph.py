@@ -131,16 +131,17 @@ class VideoInput(Filter):
         result = []
         for i in range(0, media_types_count):
             media_type, capability = stream_config.GetStreamCaps(i)
-            p_video_info_header = cast(media_type.contents.pbFormat, POINTER(VIDEOINFOHEADER))
-            bmp_header = p_video_info_header.contents.bmi_header
-            result.append({
-                'index': i,
-                'media_type_str': subtypes[str(media_type.contents.subtype)],
-                'width': bmp_header.biWidth,
-                'height': bmp_header.biHeight,
-                'min_framerate': 10000000 / capability.MinFrameInterval,
-                'max_framerate': 10000000 / capability.MaxFrameInterval
-            })
+            if GUID(FormatTypes.FORMAT_VideoInfo) == media_type.contents.formattype:
+                p_video_info_header = cast(media_type.contents.pbFormat, POINTER(VIDEOINFOHEADER))
+                bmp_header = p_video_info_header.contents.bmi_header
+                result.append({
+                    'index': i,
+                    'media_type_str': subtypes[str(media_type.contents.subtype)],
+                    'width': bmp_header.biWidth,
+                    'height': bmp_header.biHeight,
+                    'min_framerate': 10000000 / capability.MinFrameInterval,
+                    'max_framerate': 10000000 / capability.MaxFrameInterval
+                })
             #print(f"{capability.MinOutputSize.cx}x{capability.MinOutputSize.cx} - {capability.MaxOutputSize.cx}x{capability.MaxOutputSize.cx}")
         return result
 
