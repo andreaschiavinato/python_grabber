@@ -41,6 +41,16 @@ class clsids:
     CLSID_SmartTee                 = "{CC58E280-8AA1-11d1-B3F1-00AA003761C5}"
 
 
+class FormatTypes:
+    FORMAT_None = "{0F6417D6-C318-11D0-A43F-00A0C9223196}"
+    FORMAT_VideoInfo = "{05589f80-c356-11ce-bf01-00aa0055595a}"
+    FORMAT_VideoInfo2 = "{F72A76A0-EB0A-11d0-ACE4-0000C0CC16BA}"
+    FORMAT_WaveFormatEx = "{05589f81-c356-11ce-bf01-00aa0055595a}"
+    FORMAT_MPEGVideo = "{05589f82-c356-11ce-bf01-00aa0055595a}"
+    FORMAT_MPEGStreams = "{05589f83-c356-11ce-bf01-00aa0055595a}"
+    FORMAT_DvInfo = "{05589f84-c356-11ce-bf01-00aa0055595a}"
+    FORMAT_525WSS = "{C7ECF04D-4582-4869-9ABB-BFB523B62EDF}"
+
 class DeviceCategories:
     VideoInputDevice = "{860bb310-5d01-11d0-bd3b-00a0c911ce86}"
     AudioInputDevice = "{33d9a762-90c8-11d0-bd43-00a0c911ce86}"
