@@ -26,12 +26,10 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-from ctypes import POINTER, HRESULT
-from ctypes import windll
-from ctypes.wintypes import (DWORD, ULONG, HWND,
-                             UINT, LPCOLESTR, LCID, LPVOID)
+from ctypes import HRESULT, POINTER, windll
+from ctypes.wintypes import DWORD, HWND, LCID, LPCOLESTR, LPVOID, UINT, ULONG
 
-from comtypes import IUnknown, GUID
+from comtypes import GUID, IUnknown
 
 LPUNKNOWN = POINTER(IUnknown)
 CLSID = GUID

@@ -28,16 +28,22 @@
 
 # see https://github.com/tpn/winsdk-10/blob/master/Include/10.0.16299.0/um/axextend.idl for interface spec.
 
-from pygrabber.moniker import *
-from pygrabber.win_common_types import *
-from comtypes import *
-from comtypes import client
-from ctypes.wintypes import RECT, SIZE, ULONG, LPOLESTR, DWORD, LONG
-from comtypes.automation import IDispatch
-from ctypes import c_int, c_long, c_longlong
 
-qedit = client.GetModule("qedit.dll")
-quartz = client.GetModule("quartz.dll")
+from ctypes import HRESULT, POINTER, Structure, c_int, c_long, c_longlong, c_short, c_uint32
+from ctypes.wintypes import DWORD, LONG, LPCOLESTR, LPOLESTR, RECT, SIZE, ULONG, WORD
+
+from comtypes import BSTR, COMMETHOD, GUID, IUnknown, client
+from comtypes.automation import IDispatch
+
+from pygrabber.moniker import IEnumMoniker
+from pygrabber.win_common_types import DWORDLONG, LONG_PTR, OLE_HANDLE, REFERENCE_TIME, REFIID
+
+qedit = client.GetModule('qedit.dll')
+quartz = client.GetModule('quartz.dll')
+
+IPIN = POINTER(qedit.IPin)
+IBASEFILTER = POINTER(qedit.IBaseFilter)
+IFILTERGRAPH = POINTER(qedit.IFilterGraph)
 
 
 PIN_IN = 0
@@ -153,7 +159,7 @@ IAMStreamConfig._methods_ = [
               (['out'], POINTER(c_int), 'piCount'),
               (['out'], POINTER(c_int), 'piSize')
               ),
-    COMMETHOD([], HRESULT, 'GetStreamCaps', #https://docs.microsoft.com/en-us/previous-versions/ms784114(v%3Dvs.85)
+    COMMETHOD([], HRESULT, 'GetStreamCaps',  # https://docs.microsoft.com/en-us/previous-versions/ms784114(v%3Dvs.85)
               (['in'], c_int, 'iIndex'),
               (['out'], POINTER(POINTER(qedit._AMMediaType)), 'pmt'),
               (['out'], POINTER(VIDEO_STREAM_CONFIG_CAPS), 'pSCC'))]
@@ -322,6 +328,9 @@ class ICaptureGraphBuilder2(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{93E5A4E0-2D50-11d2-ABFA-00A0C9C6E38D}')
     _idlflags_ = []
+
+
+ICAPTUREGRAPHBUILDER2 = POINTER(ICaptureGraphBuilder2)
 
 
 ICaptureGraphBuilder2._methods_ = [
