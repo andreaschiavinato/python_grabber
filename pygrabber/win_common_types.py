@@ -26,8 +26,11 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+
+from ctypes import POINTER, c_int, c_longlong, c_ulong, c_ulonglong, c_wchar_p
 from ctypes.wintypes import SHORT
-from comtypes import *
+
+from comtypes import GUID
 
 REFERENCE_TIME = c_longlong
 LONG_PTR = c_ulong

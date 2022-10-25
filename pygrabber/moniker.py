@@ -26,11 +26,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-from comtypes import GUID
-from comtypes import IPersist
-from comtypes import IUnknown
-from comtypes import COMMETHOD, HRESULT, POINTER, c_int, c_ulong
 from ctypes.wintypes import _ULARGE_INTEGER
+
+from comtypes import COMMETHOD, GUID, HRESULT, POINTER, IPersist, IUnknown, c_int, c_ulong
 
 
 class IPersistStream(IPersist):
@@ -65,66 +63,69 @@ IPersistStream._methods_ = [
 
 class IEnumMoniker(IUnknown):
     _case_insensitive_ = True
-    _iid_ = GUID("{00000102-0000-0000-C000-000000000046}")
+    _iid_ = GUID('{00000102-0000-0000-C000-000000000046}')
     _idlflags_ = []
 
 
 class IMoniker(IPersistStream):
     _case_insensitive_ = True
-    _iid_ = GUID("{0000000F-0000-0000-C000-000000000046}")
+    _iid_ = GUID('{0000000F-0000-0000-C000-000000000046}')
     _idlflags_ = []
+
+
+IMONIKER = POINTER(IMoniker)
 
 
 class IBindCtx(IUnknown):
     _case_insensitive_ = True
-    _iid_ = GUID("{0000000E-0000-0000-C000-000000000046}")
+    _iid_ = GUID('{0000000E-0000-0000-C000-000000000046}')
     _idlflags_ = []
 
 
 IEnumMoniker._methods_ = [
-    COMMETHOD([], HRESULT, "Next",
+    COMMETHOD([], HRESULT, 'Next',
               (['in'], c_ulong, 'celt'),
               (['out'], POINTER(POINTER(IMoniker)), 'rgelt'),
               (['out'], POINTER(c_ulong), 'pceltFetched')),
 
-    COMMETHOD([], HRESULT, "Skip",
+    COMMETHOD([], HRESULT, 'Skip',
               (['in'], c_ulong, 'celt')),
 
-    COMMETHOD([], HRESULT, "Reset"),
-    COMMETHOD([], HRESULT, "Clone",
+    COMMETHOD([], HRESULT, 'Reset'),
+    COMMETHOD([], HRESULT, 'Clone',
               (['out'], POINTER(POINTER(IMoniker)), 'ppenum'))
 ]
 
 IMoniker._methods_ = [
-    COMMETHOD([], HRESULT, "BindToObject",
-              (['in'], POINTER(IBindCtx), "pbc"),
-              (['in'], POINTER(IMoniker), "pmkToLeft"),
-              (['in'], POINTER(GUID), "riidResult"),
-              (['out'], POINTER(POINTER(IUnknown)), "ppvResult")
+    COMMETHOD([], HRESULT, 'BindToObject',
+              (['in'], POINTER(IBindCtx), 'pbc'),
+              (['in'], POINTER(IMoniker), 'pmkToLeft'),
+              (['in'], POINTER(GUID), 'riidResult'),
+              (['out'], POINTER(POINTER(IUnknown)), 'ppvResult')
               ),
-    COMMETHOD([], HRESULT, "BindToStorage",
-              (['in'], POINTER(IBindCtx), "pbc"),
-              (['in'], POINTER(IMoniker), "pmkToLeft"),
-              (['in'], POINTER(GUID), "riid"),
-              (['out'], POINTER(POINTER(IUnknown)), "ppvObj")
+    COMMETHOD([], HRESULT, 'BindToStorage',
+              (['in'], POINTER(IBindCtx), 'pbc'),
+              (['in'], POINTER(IMoniker), 'pmkToLeft'),
+              (['in'], POINTER(GUID), 'riid'),
+              (['out'], POINTER(POINTER(IUnknown)), 'ppvObj')
               )]
 
 # IMoniker._methods_ = IPersistStream._methods_ + [
-#    STDMETHOD(HRESULT, "BindToObject", POINTER(IBindCtx), POINTER(IMoniker), REFIID, c_void_p),
-#    STDMETHOD(HRESULT, "BindToStorage", POINTER(IBindCtx), POINTER(IMoniker), REFIID, c_void_p),
-#    STDMETHOD(HRESULT, "Reduce", POINTER(IBindCtx), DWORD,
+#    STDMETHOD(HRESULT, 'BindToObject', POINTER(IBindCtx), POINTER(IMoniker), REFIID, c_void_p),
+#    STDMETHOD(HRESULT, 'BindToStorage', POINTER(IBindCtx), POINTER(IMoniker), REFIID, c_void_p),
+#    STDMETHOD(HRESULT, 'Reduce', POINTER(IBindCtx), DWORD,
 #              POINTER(POINTER(IMoniker)), POINTER(POINTER(IMoniker))),
-#    STDMETHOD(HRESULT, "ComposeWith", POINTER(IMoniker), BOOL, POINTER(POINTER(IMoniker))),
-#    STDMETHOD(HRESULT, "Enum", BOOL, POINTER(IEnumMoniker)),
-#    STDMETHOD(HRESULT, "IsEqual", POINTER(IMoniker)),
-#    STDMETHOD(HRESULT, "Hash", POINTER(DWORD)),
-#    STDMETHOD(HRESULT, "IsRunning", POINTER(IBindCtx), POINTER(IMoniker), POINTER(IMoniker)),
-#    STDMETHOD(HRESULT, "GetTimeOfLastChange", POINTER(IBindCtx), POINTER(IMoniker),
+#    STDMETHOD(HRESULT, 'ComposeWith', POINTER(IMoniker), BOOL, POINTER(POINTER(IMoniker))),
+#    STDMETHOD(HRESULT, 'Enum', BOOL, POINTER(IEnumMoniker)),
+#    STDMETHOD(HRESULT, 'IsEqual', POINTER(IMoniker)),
+#    STDMETHOD(HRESULT, 'Hash', POINTER(DWORD)),
+#    STDMETHOD(HRESULT, 'IsRunning', POINTER(IBindCtx), POINTER(IMoniker), POINTER(IMoniker)),
+#    STDMETHOD(HRESULT, 'GetTimeOfLastChange', POINTER(IBindCtx), POINTER(IMoniker),
 #              POINTER(FILETIME)),
-#    STDMETHOD(HRESULT, "Inverse", POINTER(IMoniker)),
-#    STDMETHOD(HRESULT, "CommonPrefixWith", POINTER(IMoniker), POINTER(POINTER(IMoniker))),
-#    STDMETHOD(HRESULT, "RelativePathTo", POINTER(IMoniker), POINTER(POINTER(IMoniker))),
-#    STDMETHOD(HRESULT, "GetDisplayName", POINTER(IBindCtx), POINTER(IMoniker), POINTER(LPOLESTR)),
-#    STDMETHOD(HRESULT, "ParseDisplayName", POINTER(IBindCtx), POINTER(IMoniker),
+#    STDMETHOD(HRESULT, 'Inverse', POINTER(IMoniker)),
+#    STDMETHOD(HRESULT, 'CommonPrefixWith', POINTER(IMoniker), POINTER(POINTER(IMoniker))),
+#    STDMETHOD(HRESULT, 'RelativePathTo', POINTER(IMoniker), POINTER(POINTER(IMoniker))),
+#    STDMETHOD(HRESULT, 'GetDisplayName', POINTER(IBindCtx), POINTER(IMoniker), POINTER(LPOLESTR)),
+#    STDMETHOD(HRESULT, 'ParseDisplayName', POINTER(IBindCtx), POINTER(IMoniker),
 #              LPOLESTR, POINTER(ULONG), POINTER(POINTER(IMoniker))),
-#    STDMETHOD([], HRESULT, "IsSystemMoniker", POINTER(DWORD))]
+#    STDMETHOD([], HRESULT, 'IsSystemMoniker', POINTER(DWORD))]

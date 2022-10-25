@@ -26,11 +26,14 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-from pygrabber.dshow_graph import *
+
+from typing import Callable
+
+from pygrabber.dshow_graph import FilterGraph, Mat, StateGraph
 
 
 class PyGrabber:
-    def __init__(self, callback):
+    def __init__(self, callback: Callable[[Mat], None]):
         self.graph = FilterGraph()
         self.callback = callback
         self.preview_graph_prepared = False
@@ -51,10 +54,10 @@ class PyGrabber:
     def get_asf_profiles(self):
         return self.graph.get_asf_profiles()
 
-    def set_device(self, input_device_index):
+    def set_device(self, input_device_index: int):
         self.graph.add_video_input_device(input_device_index)
 
-    def start_preview(self, handle):
+    def start_preview(self, handle: int):
         if not self.preview_graph_prepared:
             if self.recording_prepared:
                 self.graph.remove_all_filters_but_video_source()
@@ -67,7 +70,14 @@ class PyGrabber:
             self.preview_graph_prepared = True
         self.graph.run()
 
-    def start_recording(self, audio_device_index, video_compressor_index, audio_compressor_index, filename, handle):
+    def start_recording(
+        self,
+        audio_device_index: int,
+        video_compressor_index: int,
+        audio_compressor_index: int,
+        filename: str,
+        handle: int,
+    ):
         self.graph.stop()
         self.preview_graph_prepared = False
         self.graph.remove_all_filters_but_video_source()
@@ -87,7 +97,7 @@ class PyGrabber:
     def stop(self):
         self.graph.stop()
 
-    def update_window(self, width, height):
+    def update_window(self, width: int, height: int):
         self.graph.update_window(width, height)
 
     def set_device_properties(self):
@@ -104,9 +114,9 @@ class PyGrabber:
         device_name = self.graph.get_input_device().Name
         resolution = self.graph.get_input_device().get_current_format()
         if graph_state == StateGraph.Stopped:
-            return "Stopped"
+            return 'Stopped'
         elif graph_state == StateGraph.Running:
             return f"{'Recording' if self.graph.is_recording else 'Playing'} {device_name} [{resolution[0]}x{resolution[1]}]"
         elif graph_state == StateGraph.Paused:
-            return f"Connected to {device_name} - paused"
+            return f'Connected to {device_name} - paused'
         return None

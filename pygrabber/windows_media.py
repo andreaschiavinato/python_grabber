@@ -26,10 +26,12 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-from pygrabber.win_common_types import *
-from comtypes import DWORD
-from ctypes.wintypes import BOOL
+from ctypes import POINTER, c_wchar, c_wchar_p, windll
+from ctypes.wintypes import BOOL, DWORD, WORD
 
+from comtypes import COMMETHOD, GUID, HRESULT, IUnknown
+
+from pygrabber.win_common_types import REFGUID
 
 LPCWSTR_WMSDK_TYPE_SAFE = POINTER(c_wchar)
 
@@ -113,6 +115,9 @@ class IWMProfile(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{96406BDB-2B2B-11D3-B36B-00C04F6108FF}')
     _idlflags_ = []
+
+
+IWMPROFILE = POINTER(IWMProfile)
 
 
 IWMProfile._methods_ = [
